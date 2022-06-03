@@ -1,0 +1,360 @@
+---
+title: "Evaluating the effects of the BCG vaccine"
+output: learnr::tutorial
+runtime: shiny_prerendered
+---
+
+```{r setup, include=FALSE}
+library(learnr)
+library(metafor)
+knitr::opts_chunk$set(echo = FALSE, fig.width = 5, fig.height = 5, fig.align = 'center')
+
+dat.bcg.transformed <- escalc(
+  measure = 'RR',  ## the outcome measure to use, RR -> (log) risk ratio
+  ai = tpos,       ## upper left, of the 2 x 2 frequency table
+  bi = tneg,       ## upper right, ...
+  ci = cpos,       ## lower left, ...
+  di = cneg,       ## lower right, ...
+  data = dat.bcg
+)
+res <- rma(yi, vi, data = dat.bcg.transformed)
+
+```
+
+## What is a meta-analysis? 
+
+A meta-analysis is a statistical analysis that combines the results of multiple
+scientific studies. The goal of this document is to present an example of such
+analysis. 
+
+We will achieve this in a few steps
+
+- Loading and exploring a dataset of published studies
+- Transforming the main effects and variance to an appropriate format
+- Applying a random-effects model to the dataset
+- Exploring and visualizing the output of the model
+
+These materials are based on the 
+
+- The [vignette](https://www.metafor-project.org/) of the `metafore` package
+- The article by [Viechtbauer, 2010](https://www.jstatsoft.org/article/view/v036i03) 
+
+---
+
+## Loading the BCG dataset
+
+The following analysis uses the `dat.bcg` dataset and the `metafor` R package.
+The goal is to estimate the efficacy of the BCG vaccine and to relate its effect
+to study variables such as the latitude of the study location and the method
+of treatment allocation.
+
+The dataset `dat.bcg` is shipped with the `metafor` package. So we first need to
+load the package and the dataset would be available to us.
+
+```{r load, echo=TRUE}
+# load the package
+library(metafor)
+```
+
+Once you the package has been loaded, the dataset will be available to you.
+Go on and excute the following code to examine the first three rows.
+
+```{r head, exercise=TRUE}
+# examine the dataset
+head(dat.bcg, 3)
+```
+
+This dataset consists of `r nrow(dat.bcg)` clinical trials. Each trial had a few
+variables recorded in addition to `author` and `year`. These are
+
+- `tpos`: number of TB positive cases in the treated (vaccinated) group
+- `tneg`: number of TB negative cases in the treated (vaccinated) group
+- `cpos`: number of TB positive cases in the control (non-vaccinated) group
+- `cneg`: number of TB negative cases in the control (non-vaccinated) group
+- `ablat`: absolute latitude of the study location (in degrees)
+- `alloc`: method of treatment allocation (random, alternate, or systematic)
+
+To make sure you understand how the data from these studies in encoded, have a 
+look at the table below, and answer the questions
+
+|                | positive | negative |
+|----------------|----------|----------|
+| vaccinated     |     a    |     b    |
+| not-vaccinated |     c    |     d    |
+
+```{r quiz-1}
+quiz(
+  caption = 'Quiz 1',
+  question(
+    text = 'In the table above, a indicates?',
+    answer('The number of people who recieved the vaccine and tested positive', correct = TRUE),
+    answer('The number of people who recieved the vaccine'),
+    answer('The number of people who tested positive'),
+    random_answer_order = TRUE
+  ),
+  question(
+    text = 'What does the data in the table above represent?',
+    answer('The observations in the individual studies', correct = TRUE),
+    answer('The total number of observations across the studies'),
+    answer('The averaged observations accross the studies'),
+    random_answer_order = TRUE
+  ),
+  question(
+    text = 'What is the number of participants in the first three studies?',
+    answer('262, 609, and 451', correct = TRUE),
+    answer('123, 306, and 231'),
+    answer('139, 303, and 220'),
+    random_answer_order = TRUE
+  )
+)
+```
+
+The data presented in this way may be easy to read for the individual studies.
+However, to be able to aggregate and compare the results across the studies,
+further transformation of the data will be needed. We turn to this next.
+
+----
+
+## Calculating the outcome measure
+
+To be able to conduct a meta-analysis of the study, we first need to do some
+transformations on the dataset. These are
+
+1. Calculate the log risk ratio for each study
+2. Calculate the sampling variance for each study
+
+The choice of which outcome measure (effect size) to use depends on the goal of
+the analysis, the design of the studies and the available information.
+
+Fortunately, the `metafor` package provides a convenient function, `escalc` to
+calculate the common outcome measures.
+
+The following code takes the content of the individual 2 by 2 tables and 
+calculates the risk ratio (RR) on the log scale and the the sampling variance.
+
+```{r transform, echo=TRUE}
+# transform
+dat.bcg.transformed <- escalc(
+  measure = 'RR',  ## the outcome measure to use, RR -> (log) risk ratio
+  ai = tpos,       ## upper left, of the 2 x 2 frequency table
+  bi = tneg,       ## upper right, ...
+  ci = cpos,       ## lower left, ...
+  di = cneg,       ## lower right, ...
+  data = dat.bcg
+)
+```
+
+The resulting object (`dat.bcg.transformed`) is the same as before, with added 
+two columns. Examine the object below and figure out the names and meanings of 
+the new columns. 
+
+```{r transformed,exercise=TRUE}
+# examine the returned object 
+
+# the added new columns
+```
+
+```{r transformed-solution}
+# examine the returned object 
+dat.bcg.transformed
+
+# the added new columns
+setdiff(names(dat.bcg.transformed), names(dat.bcg))
+```
+
+From the information and the code above, you should be able to address the 
+following questions.
+
+```{r quiz-2}
+quiz(
+  caption = 'Quiz 2',
+  question(
+    text = 'What are the names of the new columns in "dat.bcg.transformed"?',
+    answer('yi and vi', correct = TRUE),
+    answer('ablat and alloc'),
+    answer('m1 and m2'),
+    random_answer_order = TRUE
+  ),
+  question(
+    text = 'The new columns in "dat.bcg.transformed" contains, in left to right order?',
+    answer('Effect size of the outcome and sampleing variance of the study', correct = TRUE),
+    answer('Sampleing variance of the study and effect size of the outcome'),
+    random_answer_order = TRUE
+  ),
+  question(
+    text = 'What is the relative risk of vaccinated to non-vaccinated people in Aronson, 1948 to test positive for TB?',
+    answer('0.89 less likely', correct = TRUE),
+    answer('0.89 more likely'),
+    answer('0.33 less likely'),
+    random_answer_order = TRUE
+  )
+)
+```
+
+Now that we got the dataset in shape, we will turn to modeling the aggregate
+effect of the vaccine using a random-effects model in the next section.
+
+----
+
+## Applying a random-effects model
+
+The `metafor` package provides a unified interface for the meta-analytic linear
+regression framework. The function we will be using is called `rma`. You can 
+read more about this function by calling `?rma` to get the help page.
+
+Because the included studies are not identical, we need a way to deal with the 
+variability (heterogeneity) introduced by the difference between the studies.
+The particular model we will use here is the "Random-effects model." This model
+is used when the heterogeneity between the studies is unobserved but is 
+independent from the study variables. This is in contrast to the the "fixed"
+effects where the heterogeneity is assumed to be correlated with the study 
+variables.
+
+Briefly, we assume for $i = 1, ..., k$ studies
+
+$$
+y_i=\theta_i + e_i\\
+\theta_i=\mu + u_i\\
+e_i \sim \text{Normal}(0, v_i)\\
+u_i \sim \text{Normal}(0, \tau^2)
+$$
+
+where in each study $i$,
+
+- $y_i$ is the observed effect size
+- $\theta_i$ the true (unknown) effect size
+- $e_i$ is the sampling error
+
+If we treat heterogeneity as random, then
+
+- $e_i$ will be randomly distributed and depends on the study variance $v_i$ 
+- the true effects $u_i$ will also be randomly distributed and depend on $\tau^2$.
+
+The goal would be to estimate
+
+- $\mu$, the average true effect
+- $\tau^2$, the total amount of heterogeneity among the true effects
+
+If $\tau^2=0$ the the true effects are homogeneous and $\mu = \theta$.
+
+
+Applying the model is way easier than reading it. We pass the effect size `yi`,
+the variance `vi` column names to and the data `dat.bcg.transformed` to `rma`
+function.
+
+```{r model, echo=TRUE}
+# apply random-effects model
+res <- rma(yi, vi, data = dat.bcg.transformed)
+res
+```
+
+We performed these calculations at the log scale, so we need to transform the
+output to the natural scale which easier to comprehend. Go ahead and excute the 
+code and take note of the output.
+
+```{r predict, exercise=TRUE}
+# return to natural scale from log
+predict(res, transf=exp, digits=2)
+```
+
+From the results above try answering the following questions.
+
+```{r quiz-3}
+quiz(
+  caption = 'Quiz 3',
+  question(
+    text = "According to the model, which statements are true?",
+    answer('a tuberculosis infection in vaccinatedindividuals is on average half as large as the infection risk without the vaccination', correct = TRUE),
+    answer('92% of the total variablility in the estimate can be attributed to heterogeneity between the studies', correct = TRUE),
+    answer('The ratio between the variablility between studies to sampling variability is 13:1', correct = TRUE),
+    answer('Saying that there is no heterogeneity between studies should be rejected with p-value < .001.', correct = TRUE),
+    random_answer_order = TRUE
+  )
+)
+```
+
+## Exploring and visualizing the output
+
+When the number of studies is small, and the effects are mostly in one direction
+, it would be easy to read and interpret the results from the text output.
+However, visualizing the output would become handy with larger numbers of 
+studies and when the effects are mixed. Visualization also help explore 
+different aspects of the data that are not immediatly obvious in text.
+
+We will try out two types of plots that are standard in meta-analysis reports.
+
+### The forest plot
+
+Forest plots show the estimated effect size of the individual studies along with
+the overall estimate from the linear model.
+
+The `metafor` package provides a convenient function to produce this type of 
+graph called `forest`. There are many options you could use to customize the
+output, but we will try it out using the default options.
+
+```{r forest}
+# make a forest plot
+forest(res)
+```
+
+The figure shows the log risk ratio of the individual studies along with the 
+confidence intervals. At the bottom is the estimated overall effect from the
+random-effects model.
+
+Interpreting this plot is fairly straight forward. Have a look and answer the
+following questions.
+
+```{r quiz-4}
+quiz(
+  caption = 'Quiz 4',
+  question(
+    text = 'Which study has an outcome in the opposing direction to all others?',
+    answer('Study 11'),
+    answer('Study 12', correct = TRUE),
+    answer('Study 13'),
+    random_answer_order = TRUE
+  ),
+  question(
+    text = 'What is the lower confidence interval of the estimated overall effect from the random effects model?',
+    answer('-0.36'),
+    answer('-0.71'),
+    answer('-1.07', correct = TRUE),
+    random_answer_order = TRUE
+  )
+)
+```
+
+### The funnel plot
+
+Funnel plots are another handy way to visualize the effect sizes and their 
+sampling errors. The first is displayed on the horizontal axis and the second on 
+the vertical axis. Other lines are draws to indicate the estimate based on the 
+model and the confidence interval around it.
+
+Here is the code to produce the graph using the `funnel` function from `metafore`
+
+```{r funnel}
+# make a funnel plot
+funnel(res)
+```
+
+Notice that we only used the default options, there are several ways to 
+customize the plot and overlay more information. 
+
+```{r quiz-5}
+question(
+    text = 'How many studies fall outside the estimated (pseudo) confidence interval?',
+    answer('5'),
+    answer('6', correct = TRUE),
+    answer('7'),
+    random_answer_order = TRUE
+  )
+```
+
+These and other visualization can be useful tools to diagnose problems with the
+data or the analysis. For example, it is clear from the previous plots that 
+there is large variability among the studies, some of which might be accounted
+for using the other study variables.
+
+In the homework problem, you will be asked to attempt accounting for these 
+variables to improve the overall estimate of the outcomes.

@@ -1,0 +1,106 @@
+---
+title: "Homework 3: The effect of the study variables"
+output: learnr::tutorial
+runtime: shiny_prerendered
+---
+
+```{r setup, include=FALSE}
+library(learnr)
+library(metafor)
+knitr::opts_chunk$set(echo = FALSE, fig.width = 5, fig.height = 5, fig.align = 'center')
+
+dat.bcg.transformed <- escalc(
+  measure = 'RR',  ## the outcome measure to use, RR -> (log) risk ratio
+  ai = tpos,       ## upper left, of the 2 x 2 frequency table
+  bi = tneg,       ## upper right, ...
+  ci = cpos,       ## lower left, ...
+  di = cneg,       ## lower right, ...
+  data = dat.bcg
+)
+
+res <- rma(yi, vi, data = dat.bcg.transformed)
+res2 <- rma(yi, vi, mods = ~ ablat, data = dat.bcg.transformed)
+```
+
+In the practice problem, we used the random-effects model to get an estimate of
+the overall efficacy of the BCG vaccine across different studies.
+
+The following code re-applies the mode and shows the results.
+
+```{r recape}
+# load library
+library(metafor)
+
+# calculate outcome measure
+dat.bcg.transformed <- escalc(
+  measure = 'RR',  ## the outcome measure to use, RR -> (log) risk ratio
+  ai = tpos,       ## upper left, of the 2 x 2 frequency table
+  bi = tneg,       ## upper right, ...
+  ci = cpos,       ## lower left, ...
+  di = cneg,       ## lower right, ...
+  data = dat.bcg
+)
+
+# apply the random-effects model
+res <- rma(yi, vi, data = dat.bcg.transformed)
+res
+```
+
+Based on the model above we rejected the null hypothesis stating that the 
+studies are not heterogeneous. We also got an estimate of the contribution of
+the variability between the studies to the outcome measure of around 92%. 
+
+The original dataset contains two variables that might contribute to the 
+different outcomes of the studies. These are
+
+- `ablat`: absolute latitude of the study location (in degrees)
+- `alloc`: method of treatment allocation (random, alternate, or systematic)
+
+We want to include these variables in a model similar to the above and estimate
+their contributions to the outcome and test whether they are significant or not.
+
+To do that, you will use in addition to the code above the argument `mod`. This
+arguments takes a formula of the additional variables to include in the model.
+The resulting output will estimate the contribution of each variable and tests
+for its significance.
+
+```{r mixed, exercise=TRUE}
+# apply the mixed effects model
+```
+
+```{r mixed-solution}
+# apply the mixed effects model
+res2 <- rma(yi, vi, mods = ~ ablat + alloc, data = dat.bcg.transformed)
+res2
+```
+
+Your code should return the results of the mixed-effects model that include
+which will help you answer the following questions.
+
+```{r quiz}
+quiz(
+  caption = 'Quiz',
+  question(
+    text = 'Which of the two variables have a significant effect on the vaccine efficacy?',
+    answer('Tha absolute lattiude of the location', correct = TRUE),
+    answer('The allocation method of the treatment'),
+    random_answer_order = TRUE
+  ),
+  question(
+    text = 'How much change in the log relative risk is precipitated by one degree increase in the absoloute lattitude of the study location?',
+    answer('0.3'),
+    answer('0.03'),
+    answer('-0.03', correct = TRUE),
+    random_answer_order = TRUE
+  )
+)
+```
+
+The following graph should confirm the you results obtained earlier. It shows 
+in visual terms the correlation between the outcome measure and one of the two
+study variables.
+
+```{r bubbles}
+# visualize the correlation between ablat and risk ratio
+regplot(res2, mod = 'ablat')
+```
