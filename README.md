@@ -32,7 +32,6 @@ Each module is delivered in two steps
     - Practice ([Link](https://bcmslab.shinyapps.io/rmeta_practice_1/))
     - Homework ([Link](https://bcmslab.shinyapps.io/rmeta_homework_1/))
 - Basic statistics in R
-    - Lecture ([Slides](lectures/lecture_2.pdf))
     - Practice ([Link](https://bcmslab.shinyapps.io/rmeta_practice_2/))
     - Homework ([Link](https://bcmslab.shinyapps.io/rmeta_homework_2/))
 - Evaluating the effects of the BCG vaccine
